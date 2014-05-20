@@ -16,18 +16,34 @@ import (
 
 const (
 
-	APUB            = SocketType(C.ZMQ_APUB)
+	APUB                = SocketType(C.ZMQ_APUB)
 
-    BLOCK_ADDR      = StringSocketOption(C.ZMQ_BLOCK_ADDR)
-    UNBLOCK_ADDR    = StringSocketOption(C.ZMQ_UNBLOCK_ADDR)
-    APUB_APPROVE    = StringSocketOption(C.ZMQ_APUB_APPROVE)
-    APUB_REQ        = IntSocketOption(C.ZMQ_APUB_REQ)
+    BLOCK_ADDR          = StringSocketOption(C.ZMQ_BLOCK_ADDR)
+    UNBLOCK_ADDR        = StringSocketOption(C.ZMQ_UNBLOCK_ADDR)
+    APUB_APPROVE        = StringSocketOption(C.ZMQ_APUB_APPROVE)
+    LAST_PEER_ADDR      = StringSocketOption(C.ZMQ_LAST_PEER_ADDR)
+    APUB_REQ            = IntSocketOption(C.ZMQ_APUB_REQ)
+    LAST_PEER_UNIQ_ID   = IntSocketOption(C.ZMQ_LAST_PEER_UNIQ_ID)
 
 )
+
+func (s *Socket) GetSockOptUInt(option IntSocketOption) (value uint32, err error) {
+	size := C.size_t(unsafe.Sizeof(value))
+	var rc C.int
+	if rc, err = C.zmq_getsockopt(s.s, C.int(option), unsafe.Pointer(&value), &size); rc != 0 {
+		err = casterr(err)
+		return
+	}
+	return
+}
 
 func (s *Socket) APubReq() (bool, error) {
 	value, err := s.GetSockOptInt(APUB_REQ)
 	return value != 0, err
+}
+
+func (s *Socket) GetLastPeerUniqueID() (uint32, error) {
+	return s.GetSockOptUInt(LAST_PEER_UNIQ_ID)
 }
 
 func (s *Socket) APubApprove(value string) error {
