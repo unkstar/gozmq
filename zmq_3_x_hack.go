@@ -46,8 +46,13 @@ func (s *Socket) GetLastPeerUniqueID() (uint32, error) {
 	return s.GetSockOptUInt(LAST_PEER_UNIQ_ID)
 }
 
-func (s *Socket) APubApprove(value string) error {
-	return s.SetSockOptString(APUB_APPROVE, value)
+func (s *Socket) APubApprove(value string, peerid int) error {
+	v := C.CString(value)
+	defer C.free(unsafe.Pointer(v))
+	if rc, err := C.zmq_setsockopt(s.s, C.int(APUB_APPROVE), unsafe.Pointer(v), C.size_t(peerid)); rc != 0 {
+		return casterr(err)
+	}
+	return nil
 }
 
 func (s *Socket) BlockAddr(value string) error {
