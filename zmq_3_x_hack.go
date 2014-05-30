@@ -7,24 +7,88 @@ package gozmq
 #include <zmq.h>
 #include <stdlib.h>
 #include <string.h>
+
+
+char *ev_get_addr(zmq_event_t *ev) {
+  switch (ev->event) {
+  case ZMQ_EVENT_CONNECTED:
+    return ev->data.connected.addr;
+  case ZMQ_EVENT_CONNECT_DELAYED:
+    return ev->data.connect_delayed.addr;
+  case ZMQ_EVENT_CONNECT_RETRIED:
+    return ev->data.connect_retried.addr;
+  case ZMQ_EVENT_LISTENING:
+    return ev->data.listening.addr;
+  case ZMQ_EVENT_BIND_FAILED:
+    return ev->data.bind_failed.addr;
+  case ZMQ_EVENT_ACCEPTED:
+    return ev->data.accepted.addr;
+  case ZMQ_EVENT_ACCEPT_FAILED:
+    return ev->data.accept_failed.addr;
+  case ZMQ_EVENT_CLOSED:
+    return ev->data.closed.addr;
+  case ZMQ_EVENT_CLOSE_FAILED:
+    return ev->data.close_failed.addr;
+  case ZMQ_EVENT_DISCONNECTED:
+    return ev->data.disconnected.addr;
+  case ZMQ_EVENT_PEER_ATTACHED:
+    return ev->data.peer_attached.addr;
+  case ZMQ_EVENT_PEER_DETACHED:
+    return ev->data.peer_detached.addr;
+  }
+}
+
+size_t ev_get_extra(zmq_event_t *ev) {
+  switch (ev->event) {
+  case ZMQ_EVENT_CONNECTED:
+    return ev->data.connected.fd;
+  case ZMQ_EVENT_CONNECT_DELAYED:
+    return ev->data.connect_delayed.err;
+  case ZMQ_EVENT_CONNECT_RETRIED:
+    return ev->data.connect_retried.interval;
+  case ZMQ_EVENT_LISTENING:
+    return ev->data.listening.fd;
+  case ZMQ_EVENT_BIND_FAILED:
+    return ev->data.bind_failed.err;
+  case ZMQ_EVENT_ACCEPTED:
+    return ev->data.accepted.fd;
+  case ZMQ_EVENT_ACCEPT_FAILED:
+    return ev->data.accept_failed.err;
+  case ZMQ_EVENT_CLOSED:
+    return ev->data.closed.fd;
+  case ZMQ_EVENT_CLOSE_FAILED:
+    return ev->data.close_failed.err;
+  case ZMQ_EVENT_DISCONNECTED:
+    return ev->data.disconnected.fd;
+  case ZMQ_EVENT_PEER_ATTACHED:
+    return ev->data.peer_attached.id;
+  case ZMQ_EVENT_PEER_DETACHED:
+    return ev->data.peer_detached.id;
+  }
+}
+
+
 */
 import "C"
 import (
 	"unsafe"
+	"errors"
 )
 
 
 const (
 
-	APUB                = SocketType(C.ZMQ_APUB)
+  APUB                = SocketType(C.ZMQ_APUB)
 
-    BLOCK_ADDR          = StringSocketOption(C.ZMQ_BLOCK_ADDR)
-    UNBLOCK_ADDR        = StringSocketOption(C.ZMQ_UNBLOCK_ADDR)
-    APUB_APPROVE        = StringSocketOption(C.ZMQ_APUB_APPROVE)
-    LAST_PEER_ADDR      = StringSocketOption(C.ZMQ_LAST_PEER_ADDR)
-    APUB_REQ            = IntSocketOption(C.ZMQ_APUB_REQ)
-    LAST_PEER_UNIQ_ID   = IntSocketOption(C.ZMQ_LAST_PEER_UNIQ_ID)
+  BLOCK_ADDR          = StringSocketOption(C.ZMQ_BLOCK_ADDR)
+  UNBLOCK_ADDR        = StringSocketOption(C.ZMQ_UNBLOCK_ADDR)
+  APUB_APPROVE        = StringSocketOption(C.ZMQ_APUB_APPROVE)
+  LAST_PEER_ADDR      = StringSocketOption(C.ZMQ_LAST_PEER_ADDR)
+  APUB_REQ            = IntSocketOption(C.ZMQ_APUB_REQ)
+  LAST_PEER_UNIQ_ID   = IntSocketOption(C.ZMQ_LAST_PEER_UNIQ_ID)
 
+  EVENT_PEER_ATTACHED = Event(C.ZMQ_EVENT_PEER_ATTACHED)
+  EVENT_PEER_DETACHED = Event(C.ZMQ_EVENT_PEER_DETACHED)
 )
 
 func (s *Socket) GetSockOptUInt(option IntSocketOption) (value uint32, err error) {
@@ -85,4 +149,33 @@ func (s *Socket) GetLastRecvPeerAddr() (string, error) {
     }
     defer C.free(unsafe.Pointer(*addr))
     return C.GoString(*addr), nil
+}
+
+func (s *Socket) RecvEvent(flags SendRecvOption) (ty Event, addr string, ex int64, err error) {
+	// Allocate and initialise a new zmq_msg_t
+	var m C.zmq_msg_t
+	var rc C.int
+	if rc, err = C.zmq_msg_init(&m); rc != 0 {
+		err = casterr(err)
+		return
+	}
+	defer C.zmq_msg_close(&m)
+	// Receive into message
+	if rc, err = C.zmq_recvmsg(s.s, &m, C.int(flags)); rc == -1 {
+		err = casterr(err)
+		return
+	}
+  var ev *C.zmq_event_t
+	size := C.zmq_msg_size(&m)
+  if uintptr(size) != unsafe.Sizeof(*ev) {
+    err = errors.New("Invalid event message received")
+    return
+  }
+	err = nil
+
+  ev = (*C.zmq_event_t)(C.zmq_msg_data(&m))
+  ty = Event(ev.event)
+  addr = C.GoString(C.ev_get_addr(ev))
+  ex = int64(C.ev_get_extra(ev))
+  return
 }
