@@ -78,14 +78,15 @@ import (
 
 const (
 
-  APUB                = SocketType(C.ZMQ_APUB)
+  APUB                  = SocketType(C.ZMQ_APUB)
 
-  BLOCK_ADDR          = StringSocketOption(C.ZMQ_BLOCK_ADDR)
-  UNBLOCK_ADDR        = StringSocketOption(C.ZMQ_UNBLOCK_ADDR)
-  APUB_APPROVE        = StringSocketOption(C.ZMQ_APUB_APPROVE)
-  LAST_PEER_ADDR      = StringSocketOption(C.ZMQ_LAST_PEER_ADDR)
-  APUB_REQ            = IntSocketOption(C.ZMQ_APUB_REQ)
-  LAST_PEER_UNIQ_ID   = IntSocketOption(C.ZMQ_LAST_PEER_UNIQ_ID)
+  BLOCK_ADDR            = StringSocketOption(C.ZMQ_BLOCK_ADDR)
+  UNBLOCK_ADDR          = StringSocketOption(C.ZMQ_UNBLOCK_ADDR)
+  APUB_APPROVE          = StringSocketOption(C.ZMQ_APUB_APPROVE)
+  LAST_PEER_ADDR        = StringSocketOption(C.ZMQ_LAST_PEER_ADDR)
+  APUB_REQ              = IntSocketOption(C.ZMQ_APUB_REQ)
+  LAST_PEER_UNIQ_ID     = IntSocketOption(C.ZMQ_LAST_PEER_UNIQ_ID)
+  DISCONNECT_PEER_BY_ID = IntSocketOption(C.ZMQ_DISCONNECT_PEER_BY_ID)
 
   EVENT_PEER_ATTACHED = Event(C.ZMQ_EVENT_PEER_ATTACHED)
   EVENT_PEER_DETACHED = Event(C.ZMQ_EVENT_PEER_DETACHED)
@@ -104,6 +105,13 @@ func (s *Socket) GetSockOptUInt(option IntSocketOption) (value uint32, err error
 func (s *Socket) APubReq() (bool, error) {
 	value, err := s.GetSockOptInt(APUB_REQ)
 	return value != 0, err
+}
+
+func (s *Socket) DisconnectPeerById(id uint32) error {
+	if rc, err := C.zmq_setsockopt(s.s, C.int(DISCONNECT_PEER_BY_ID), unsafe.Pointer(nil), C.size_t(id)); rc != 0 {
+		return casterr(err)
+	}
+	return nil
 }
 
 func (s *Socket) GetLastPeerUniqueID() (uint32, error) {
