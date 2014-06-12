@@ -150,13 +150,13 @@ func (s *Socket) BlockLastRecvPeer() error {
 }
 
 func (s *Socket) GetLastRecvPeerAddr() (string, error) {
-    var addr **C.char
+    var addr *C.char
 
-    if rc, err := C.zmq_last_recv_peer_addr(s.s, addr); rc != 0 {
+    if rc, err := C.zmq_last_recv_peer_addr(s.s, &addr); rc != 0 {
         return "", casterr(err)
     }
-    defer C.free(unsafe.Pointer(*addr))
-    return C.GoString(*addr), nil
+    defer C.free(unsafe.Pointer(addr))
+    return C.GoString(addr), nil
 }
 
 func (s *Socket) RecvEvent(flags SendRecvOption) (ty Event, addr string, ex int64, err error) {
